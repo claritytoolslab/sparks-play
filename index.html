@@ -85,7 +85,7 @@
 </head>
 <body>
   <header>
-    <h1><span class="spark">✦</span> <span style="font-weight:400;color:var(--dim)">Playlist:</span> <span id="name">Sparks</span></h1>
+    <h1 id="title-link" role="button" tabindex="0" style="cursor:pointer"><span class="spark">✦</span> <span style="font-weight:400;color:var(--dim)">Playlist:</span> <span id="name">Sparks</span></h1>
     <span id="count"></span>
   </header>
 
@@ -380,6 +380,8 @@
     $('start').hidden = false;
     $('start').scrollTop = 0;
   }
+  $('title-link').onclick = showStart;
+  $('title-link').onkeydown = function (e) { if (e.key === 'Enter') showStart(); };
   $('resume').onclick = function () {
     if (current && current.kind === 'youtube' && ytPlayer) { $('start').hidden = true; ytPlayer.playVideo(); }
     else begin(index);
