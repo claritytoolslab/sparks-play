@@ -262,13 +262,13 @@
     if (frame.contentWindow) frame.contentWindow.postMessage({ type: type, 'x-tiktok-player': true }, '*');
   }
 
-  // Phones only autoplay muted videos without a tap. Start with sound; if the
-  // browser stops it, keep playing muted rather than sitting still.
-  var tiktokStart = 0, tiktokFellBack = false;
+  // Phones only autoplay muted videos without a tap. Start muted (always allowed),
+  // then try sound; if the browser pauses it for that, go back to muted.
+  var tiktokUnmutedAt = 0, tiktokFellBack = false, tiktokPlaying = false;
   function startTikTok() {
-    tiktokStart = Date.now();
     tiktokFellBack = false;
-    tiktok('unMute');
+    tiktokPlaying = false;
+    tiktok('mute');
     tiktok('play');
   }
 
@@ -280,7 +280,12 @@
     if (d.type === 'onPlayerReady') startTikTok();
     if (d.type === 'onStateChange') {
       if (d.value === 0) next();
-      if (d.value === 2 && !tiktokFellBack && Date.now() - tiktokStart < 4000) {
+      if (d.value === 1 && !tiktokPlaying) {
+        tiktokPlaying = true;
+        tiktokUnmutedAt = Date.now();
+        tiktok('unMute');
+      }
+      if (d.value === 2 && !tiktokFellBack && Date.now() - tiktokUnmutedAt < 2000) {
         tiktokFellBack = true;
         tiktok('mute');
         tiktok('play');
