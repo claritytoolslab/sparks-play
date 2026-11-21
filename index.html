@@ -284,7 +284,9 @@
     }
   });
 
-  var touchScreen = matchMedia('(pointer: coarse)').matches, waitingForTap = false;
+  // iPhone and iPad block these embeds from starting on their own; Android lets most of them.
+  var touchScreen = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var waitingForTap = false;
   // Tapping inside the video's frame moves focus away from this page.
   window.addEventListener('blur', function () {
     setTimeout(function () {
