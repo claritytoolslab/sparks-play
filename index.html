@@ -215,7 +215,17 @@
     if (e.kind === 'tiktok') frame.onload = function () { setTimeout(startTikTok, 800); };
     frame.src = e.src;
     frame.hidden = false;
-    startTimer(GUESS_SECONDS[e.kind]);
+    // Phones won't start these embeds without a tap, and they can't be started
+    // from the page. Wait for the tap before counting down.
+    if (e.kind !== 'tiktok' && touchScreen) {
+      waitingForTap = true;
+      $('timer').hidden = false;
+      $('timer-text').textContent = 'Tap ▶ in the video to start';
+      $('more').hidden = true;
+      $('stay').hidden = true;
+    } else {
+      startTimer(GUESS_SECONDS[e.kind]);
+    }
   }
 
   // One YouTube player is reused, so sound keeps working after the first tap.
@@ -274,6 +284,16 @@
     }
   });
 
+  var touchScreen = matchMedia('(pointer: coarse)').matches, waitingForTap = false;
+  // Tapping inside the video's frame moves focus away from this page.
+  window.addEventListener('blur', function () {
+    setTimeout(function () {
+      if (!waitingForTap || document.activeElement !== $('frame')) return;
+      waitingForTap = false;
+      startTimer(GUESS_SECONDS[current.kind]);
+    }, 0);
+  });
+
   function startTimer(seconds) {
     staying = false;
     deadline = Date.now() + seconds * 1000;
@@ -285,6 +305,7 @@
   }
 
   function stopTimer() {
+    waitingForTap = false;
     clearInterval(ticker);
     ticker = null;
     $('timer').hidden = true;
