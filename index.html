@@ -97,6 +97,7 @@
     </div>
     <div id="timer" hidden>
       <span id="timer-text"></span>
+      <button class="chip" id="alt" hidden>Not loading?</button>
       <button class="chip" id="more">+30 s</button>
       <button class="chip" id="stay">Stay</button>
     </div>
@@ -149,7 +150,7 @@
       if (id) return { kind: 'youtube', id: id };
     }
     if (/(^|\.)tiktok\.com$/.test(host) && (m = raw.match(/\/video\/(\d+)/))) {
-      return { kind: 'tiktok', src: 'https://www.tiktok.com/player/v1/' + m[1] + '?autoplay=1&loop=0&rel=0&music_info=0&description=1' };
+      return { kind: 'tiktok', id: m[1], src: 'https://www.tiktok.com/player/v1/' + m[1] + '?autoplay=1&loop=0&rel=0&music_info=0&description=1' };
     }
     if (/(^|\.)instagram\.com$/.test(host) && (m = url.pathname.match(/\/(reels?|p|tv)\/([\w-]+)/))) {
       return { kind: 'instagram', src: 'https://www.instagram.com/' + (m[1] === 'p' ? 'p' : 'reel') + '/' + m[2] + '/embed/' };
@@ -216,6 +217,7 @@
     }
     if (e.kind === 'youtube') { playYouTube(e.id, i); return; }
 
+    $('alt').hidden = e.kind !== 'tiktok';
     var frame = $('frame');
     if (e.kind === 'tiktok') frame.onload = function () { setTimeout(startTikTok, 800); };
     frame.src = e.src;
@@ -348,6 +350,14 @@
 
   $('prev').onclick = function () { show(index - 1); };
   $('next').onclick = function () { show(index + 1); };
+  // TikTok's newer player is sometimes refused ("Access Denied"); its older embed often still works.
+  $('alt').onclick = function () {
+    if (!current || current.kind !== 'tiktok') return;
+    var frame = $('frame');
+    frame.onload = null;
+    frame.src = 'https://www.tiktok.com/embed/v2/' + current.id + '?autoplay=1';
+    $('alt').hidden = true;
+  };
   $('more').onclick = function () { deadline += 30000; tick(); };
   $('stay').onclick = function () {
     staying = true;
