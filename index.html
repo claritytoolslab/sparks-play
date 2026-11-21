@@ -107,6 +107,7 @@
       <h2 id="start-name">Sparks Playlist</h2>
       <p class="sub" id="start-sub"></p>
       <button class="pill" id="play">▶ Play all</button>
+      <p class="sub" id="in-app" hidden style="margin-top:16px">Have Sparks? <a id="open-app" style="color:var(--accent)">Open in the app</a> — every video plays by itself there.</p>
       <ol id="list"></ol>
       <p class="credit">Shared from Sparks ✦ Videos play from YouTube, TikTok, Instagram and Facebook.</p>
     </div>
@@ -399,6 +400,10 @@
       li.appendChild(b);
       list.appendChild(li);
     });
+    if (touchScreen) {
+      $('open-app').href = 'sparks://play#' + hash;
+      $('in-app').hidden = false;
+    }
     if (items.some(function (x) { var e = embed(x.u); return e && e.kind === 'youtube'; })) loadYouTube();
   }).catch(function () { fail('This link got cut short on the way. Ask for the link again.'); });
 })();
