@@ -212,6 +212,7 @@
     if (e.kind === 'youtube') { playYouTube(e.id, i); return; }
 
     var frame = $('frame');
+    if (e.kind === 'tiktok') frame.onload = function () { setTimeout(startTikTok, 800); };
     frame.src = e.src;
     frame.hidden = false;
     startTimer(GUESS_SECONDS[e.kind]);
@@ -238,15 +239,38 @@
     });
   }
 
-  // TikTok's player reports its progress; use it to move on exactly when the video ends.
+  // TikTok's player takes commands and reports its state over postMessage.
+  function tiktok(type) {
+    var frame = $('frame');
+    if (frame.contentWindow) frame.contentWindow.postMessage({ type: type, 'x-tiktok-player': true }, '*');
+  }
+
+  // Phones only autoplay muted videos without a tap. Start with sound; if the
+  // browser stops it, keep playing muted rather than sitting still.
+  var tiktokStart = 0, tiktokFellBack = false;
+  function startTikTok() {
+    tiktokStart = Date.now();
+    tiktokFellBack = false;
+    tiktok('unMute');
+    tiktok('play');
+  }
+
   window.addEventListener('message', function (ev) {
     if (!current || current.kind !== 'tiktok' || !/tiktok\.com$/.test(hostOf(ev.origin))) return;
     var d = ev.data;
     if (typeof d === 'string') { try { d = JSON.parse(d); } catch (e) { return; } }
     if (!d || typeof d !== 'object') return;
-    if (d.type === 'onStateChange' && d.value === 0) next();
+    if (d.type === 'onPlayerReady') startTikTok();
+    if (d.type === 'onStateChange') {
+      if (d.value === 0) next();
+      if (d.value === 2 && !tiktokFellBack && Date.now() - tiktokStart < 4000) {
+        tiktokFellBack = true;
+        tiktok('mute');
+        tiktok('play');
+      }
+    }
     if (d.type === 'onCurrentTime' && d.value && d.value.duration > 0 && !staying) {
-      deadline = Date.now() + (d.value.duration - d.value.currentTime + 1.5) * 1000;
+      deadline = Date.now() + (d.value.duration - d.value.currentTime + 1) * 1000;
     }
   });
 
@@ -271,7 +295,8 @@
     var left = Math.ceil((deadline - Date.now()) / 1000);
     if (left <= 0) { next(); return; }
     var m = Math.floor(left / 60), s = left % 60;
-    $('timer-text').textContent = (index < items.length - 1 ? 'Next video in ' : 'Ends in ') + m + ':' + (s < 10 ? '0' : '') + s;
+    var muted = current && current.kind === 'tiktok' && tiktokFellBack ? '🔇 Tap the speaker for sound · ' : '';
+    $('timer-text').textContent = muted + (index < items.length - 1 ? 'Next in ' : 'Ends in ') + m + ':' + (s < 10 ? '0' : '') + s;
   }
 
   function next() {
