@@ -273,7 +273,7 @@
 
   // Phones only autoplay muted videos without a tap. Start muted (always allowed),
   // then try sound; if the browser pauses it for that, go back to muted.
-  var tiktokUnmutedAt = 0, tiktokFellBack = false, tiktokPlaying = false;
+  var tiktokUnmutedAt = 0, tiktokFellBack = false, tiktokPlaying = false, tiktokState = -1;
   var tiktokRetry = null;
   function startTikTok() {
     tiktokFellBack = false;
@@ -303,10 +303,16 @@
         tiktokUnmutedAt = Date.now();
         tiktok('unMute');
       }
-      if (d.value === 2 && !tiktokFellBack && Date.now() - tiktokUnmutedAt < 2000) {
-        tiktokFellBack = true;
-        tiktok('mute');
-        tiktok('play');
+      tiktokState = d.value;
+      // A short pause right after unmuting can be buffering. Only give up on sound
+      // if the video is still stopped a moment later.
+      if (d.value === 2 && !tiktokFellBack && Date.now() - tiktokUnmutedAt < 3000) {
+        setTimeout(function () {
+          if (tiktokState === 1 || tiktokFellBack || !current || current.kind !== 'tiktok') return;
+          tiktokFellBack = true;
+          tiktok('mute');
+          tiktok('play');
+        }, 1200);
       }
     }
     if (d.type === 'onCurrentTime' && d.value && d.value.duration > 0 && !staying) {
