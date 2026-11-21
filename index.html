@@ -127,9 +127,13 @@
   // The playlist is packed into the link's #fragment (raw DEFLATE + base64url),
   // which browsers never send to a server.
   function decode(hash) {
+    // A length of 4n+1 can't be base64: the messaging app cut the link short.
+    if (hash.length % 4 === 1) return Promise.reject(new Error('cut'));
     var b64 = hash.replace(/-/g, '+').replace(/_/g, '/');
     b64 += '='.repeat((4 - b64.length % 4) % 4);
-    var bytes = Uint8Array.from(atob(b64), function (c) { return c.charCodeAt(0); });
+    var bytes;
+    try { bytes = Uint8Array.from(atob(b64), function (c) { return c.charCodeAt(0); }); }
+    catch (e) { return Promise.reject(e); }
     var stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
     return new Response(stream).text().then(JSON.parse);
   }
@@ -367,7 +371,16 @@
   if (typeof DecompressionStream === 'undefined') { fail('Your browser is too old to open this playlist. Try the latest Safari or Chrome.'); return; }
 
   decode(hash).then(function (data) {
-    items = (data.i || []).map(function (x) { return { u: x.u, t: x.t }; }).filter(function (x) { return x.u; });
+    // Version 2 packs each video as ["<kind><id>", "title"]; version 1 as {u, t}.
+    var BASES = {
+      t: 'https://www.tiktok.com/@/video/', y: 'https://www.youtube.com/watch?v=',
+      i: 'https://www.instagram.com/reel/', p: 'https://www.instagram.com/p/', f: 'https://www.facebook.com/reel/'
+    };
+    items = (data.i || []).map(function (x) {
+      if (!Array.isArray(x)) return { u: x.u, t: x.t };
+      var kind = (x[0] || '').charAt(0), id = (x[0] || '').slice(1);
+      return { u: BASES[kind] ? BASES[kind] + id + (kind === 'i' || kind === 'p' ? '/' : '') : id, t: x[1] };
+    }).filter(function (x) { return x.u; });
     if (!items.length) { fail('This playlist is empty.'); return; }
     var name = data.n || 'Sparks Playlist';
     document.title = name + ' · Sparks';
@@ -387,7 +400,7 @@
       list.appendChild(li);
     });
     if (items.some(function (x) { var e = embed(x.u); return e && e.kind === 'youtube'; })) loadYouTube();
-  }).catch(function () { fail('This link is damaged. Ask for the link again.'); });
+  }).catch(function () { fail('This link got cut short on the way. Ask for the link again.'); });
 })();
 </script>
 </body>
