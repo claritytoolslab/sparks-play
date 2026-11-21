@@ -73,6 +73,13 @@
   #list .n { color: var(--dim); font-variant-numeric: tabular-nums; min-width: 1.6em; }
   #list .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #list .s { color: var(--dim); font-size: 13px; }
+  .pill.ghost { background: var(--faint); color: var(--fg); margin-left: 8px; }
+  .promo { margin-top: 32px; padding: 20px; border-radius: 14px; background: var(--card); }
+  .promo h3 { font-size: 20px; margin-bottom: 6px; }
+  .promo p { color: var(--dim); margin-bottom: 12px; }
+  .promo ul { list-style: none; display: grid; gap: 8px; margin-bottom: 14px; }
+  .promo li::before { content: "✦ "; color: var(--accent); }
+  .promo .soon { color: var(--accent); font-weight: 600; margin: 0; }
   .credit { margin-top: 28px; color: var(--dim); font-size: 13px; text-align: center; }
 </style>
 </head>
@@ -110,9 +117,20 @@
     <div class="start-inner">
       <h2 id="start-name">Sparks Playlist</h2>
       <p class="sub" id="start-sub"></p>
-      <button class="pill" id="play">▶ Play all</button>
+      <button class="pill" id="play">▶ Play all</button><button class="pill ghost" id="resume" hidden>Continue</button>
       <p class="sub" id="in-app" hidden style="margin-top:16px">Have Sparks? <a id="open-app" style="color:var(--accent)">Open in the app</a> — every video plays by itself there.</p>
       <ol id="list"></ol>
+      <section class="promo">
+        <h3><span class="spark">✦</span> Sparks</h3>
+        <p>Keep what matters.</p>
+        <ul>
+          <li>Save videos from TikTok, Instagram, YouTube and Facebook in one place</li>
+          <li>Rate them and find your best in a second</li>
+          <li>Play them one after another, in one stream</li>
+          <li>Make your own playlists and share them with friends</li>
+        </ul>
+        <p class="soon">Coming soon to the App Store</p>
+      </section>
       <p class="credit">Shared from Sparks ✦ Videos play from YouTube, TikTok, Instagram and Facebook.</p>
     </div>
   </section>
@@ -352,6 +370,21 @@
   };
   $('play').onclick = function () { begin(0); };
 
+  // Swipe right from the left side to come back to this start page (it pauses the video).
+  function showStart() {
+    if (!$('start').hidden) return;
+    stopTimer();
+    if (current && current.kind === 'youtube' && ytPlayer) ytPlayer.pauseVideo();
+    else freshFrame().hidden = true;
+    $('resume').hidden = index < 0;
+    $('start').hidden = false;
+    $('start').scrollTop = 0;
+  }
+  $('resume').onclick = function () {
+    if (current && current.kind === 'youtube' && ytPlayer) { $('start').hidden = true; ytPlayer.playVideo(); }
+    else begin(index);
+  };
+
   // Swipe up for the next video, down for the previous one, like in the apps.
   function swipeable(el) {
     var x0 = 0, y0 = null;
@@ -360,6 +393,7 @@
       if (y0 === null || !$('start').hidden) return;
       var t = e.changedTouches[0], dy = t.clientY - y0, dx = t.clientX - x0;
       y0 = null;
+      if (dx > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) { showStart(); return; }
       if (Math.abs(dy) < 50 || Math.abs(dy) < Math.abs(dx) * 1.5) return;
       if (dy < 0) next(); else show(index - 1);
     }, { passive: true });
