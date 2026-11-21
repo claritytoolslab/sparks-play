@@ -222,12 +222,11 @@
 
     $('alt').hidden = e.kind !== 'tiktok';
     var frame = $('frame');
-    if (e.kind === 'tiktok') frame.onload = function () { setTimeout(startTikTok, 800); };
     frame.src = e.src;
     frame.hidden = false;
     // Phones won't start these embeds without a tap, and they can't be started
     // from the page. Wait for the tap before counting down.
-    if (e.kind !== 'tiktok' && touchScreen) {
+    if (touchScreen) {
       waitingForTap = true;
       $('timer').hidden = false;
       $('timer-text').textContent = 'Tap ▶ in the video to start';
@@ -265,57 +264,15 @@
     });
   }
 
-  // TikTok's player takes commands and reports its state over postMessage.
-  function tiktok(type) {
-    var frame = $('frame');
-    if (frame.contentWindow) frame.contentWindow.postMessage({ type: type, 'x-tiktok-player': true }, '*');
-  }
-
-  // Phones only autoplay muted videos without a tap. Start muted (always allowed),
-  // then try sound; if the browser pauses it for that, go back to muted.
-  var tiktokUnmutedAt = 0, tiktokFellBack = false, tiktokPlaying = false, tiktokState = -1;
-  var tiktokRetry = null;
-  function startTikTok() {
-    tiktokFellBack = false;
-    tiktokPlaying = false;
-    clearInterval(tiktokRetry);
-    var tries = 0;
-    // The player ignores commands until it's ready; keep asking until it plays.
-    tiktokRetry = setInterval(function () {
-      if (tiktokPlaying || ++tries > 8 || !current || current.kind !== 'tiktok') { clearInterval(tiktokRetry); return; }
-      tiktok('mute');
-      tiktok('play');
-    }, 1000);
-    tiktok('mute');
-    tiktok('play');
-  }
-
+  // TikTok's player reports how long the video is and when it ends. The page never
+  // touches its sound or play state: the viewer taps the video's own play button.
   window.addEventListener('message', function (ev) {
     if (!current || current.kind !== 'tiktok' || !/tiktok\.com$/.test(hostOf(ev.origin))) return;
     var d = ev.data;
     if (typeof d === 'string') { try { d = JSON.parse(d); } catch (e) { return; } }
     if (!d || typeof d !== 'object') return;
-    if (d.type === 'onPlayerReady') startTikTok();
-    if (d.type === 'onStateChange') {
-      if (d.value === 0) next();
-      if (d.value === 1 && !tiktokPlaying) {
-        tiktokPlaying = true;
-        tiktokUnmutedAt = Date.now();
-        tiktok('unMute');
-      }
-      tiktokState = d.value;
-      // A short pause right after unmuting can be buffering. Only give up on sound
-      // if the video is still stopped a moment later.
-      if (d.value === 2 && !tiktokFellBack && Date.now() - tiktokUnmutedAt < 3000) {
-        setTimeout(function () {
-          if (tiktokState === 1 || tiktokFellBack || !current || current.kind !== 'tiktok') return;
-          tiktokFellBack = true;
-          tiktok('mute');
-          tiktok('play');
-        }, 1200);
-      }
-    }
-    if (d.type === 'onCurrentTime' && d.value && d.value.duration > 0 && !staying) {
+    if (d.type === 'onStateChange' && d.value === 0) next();
+    if (d.type === 'onCurrentTime' && d.value && d.value.duration > 0 && !staying && !waitingForTap) {
       deadline = Date.now() + (d.value.duration - d.value.currentTime + 1) * 1000;
     }
   });
@@ -354,8 +311,7 @@
     var left = Math.ceil((deadline - Date.now()) / 1000);
     if (left <= 0) { next(); return; }
     var m = Math.floor(left / 60), s = left % 60;
-    var muted = current && current.kind === 'tiktok' && tiktokFellBack ? '🔇 Tap the speaker for sound · ' : '';
-    $('timer-text').textContent = muted + (index < items.length - 1 ? 'Next in ' : 'Ends in ') + m + ':' + (s < 10 ? '0' : '') + s;
+    $('timer-text').textContent = (index < items.length - 1 ? 'Next in ' : 'Ends in ') + m + ':' + (s < 10 ? '0' : '') + s;
   }
 
   function next() {
