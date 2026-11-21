@@ -82,7 +82,7 @@
 
   <main id="stage">
     <div id="yt-wrap" hidden><div id="yt"></div></div>
-    <iframe id="frame" hidden allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>
+    <iframe id="frame" hidden sandbox="allow-scripts allow-same-origin allow-presentation" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>
     <div id="notice" hidden></div>
   </main>
 
@@ -240,9 +240,15 @@
     loadYouTube().then(function () {
       if (index !== i) return;
       if (ytPlayer) { ytPlayer.loadVideoById(id); return; }
-      ytPlayer = new YT.Player('yt', {
-        videoId: id,
-        playerVars: { autoplay: 1, playsinline: 1, rel: 0 },
+      // Sandboxed, so the player's logo and title can't open the YouTube app.
+      var el = document.createElement('iframe');
+      el.id = 'yt';
+      el.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation');
+      el.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; fullscreen');
+      el.setAttribute('allowfullscreen', '');
+      el.src = 'https://www.youtube.com/embed/' + encodeURIComponent(id) + '?enablejsapi=1&autoplay=1&playsinline=1&rel=0&origin=' + encodeURIComponent(location.origin);
+      $('yt').replaceWith(el);
+      ytPlayer = new YT.Player(el, {
         events: {
           onReady: function (ev) { if (current && current.kind === 'youtube') ev.target.playVideo(); },
           onStateChange: function (ev) { if (ev.data === YT.PlayerState.ENDED && current && current.kind === 'youtube') next(); },
