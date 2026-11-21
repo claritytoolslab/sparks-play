@@ -265,9 +265,18 @@
   // Phones only autoplay muted videos without a tap. Start muted (always allowed),
   // then try sound; if the browser pauses it for that, go back to muted.
   var tiktokUnmutedAt = 0, tiktokFellBack = false, tiktokPlaying = false;
+  var tiktokRetry = null;
   function startTikTok() {
     tiktokFellBack = false;
     tiktokPlaying = false;
+    clearInterval(tiktokRetry);
+    var tries = 0;
+    // The player ignores commands until it's ready; keep asking until it plays.
+    tiktokRetry = setInterval(function () {
+      if (tiktokPlaying || ++tries > 8 || !current || current.kind !== 'tiktok') { clearInterval(tiktokRetry); return; }
+      tiktok('mute');
+      tiktok('play');
+    }, 1000);
     tiktok('mute');
     tiktok('play');
   }
