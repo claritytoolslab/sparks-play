@@ -432,7 +432,7 @@
     $('play').hidden = true;
   }
 
-  var hash = location.hash.slice(1);
+  var hash = location.hash.slice(1) || new URLSearchParams(location.search).get('p') || '';
   if (!hash) { fail('This link has no videos in it. Ask for the link again.'); return; }
   if (typeof DecompressionStream === 'undefined') { fail('Your browser is too old to open this playlist. Try the latest Safari or Chrome.'); return; }
 
