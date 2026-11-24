@@ -179,7 +179,7 @@
     if (/(^|\.)facebook\.com$/.test(host) || host === 'fb.watch') {
       var fb = decodeURIComponent(raw).match(/(?:\/reel\/|\/videos\/|[?&]v=)(\d+)/);
       var href = fb ? 'https://www.facebook.com/reel/' + fb[1] : raw;
-      return { kind: 'facebook', src: 'https://www.facebook.com/plugins/video.php?show_text=false&autoplay=true&href=' + encodeURIComponent(href) };
+      return { kind: 'facebook', id: fb && fb[1], raw: raw, src: 'https://www.facebook.com/plugins/video.php?show_text=false&autoplay=true&href=' + encodeURIComponent(href) };
     }
     return null;
   }
@@ -238,7 +238,8 @@
     }
     if (e.kind === 'youtube') { playYouTube(e.id, i); return; }
 
-    $('alt').hidden = e.kind !== 'tiktok';
+    $('alt').hidden = e.kind !== 'tiktok' && e.kind !== 'facebook';
+    altStep = 0;
     var frame = $('frame');
     frame.src = e.src;
     frame.hidden = false;
@@ -354,8 +355,26 @@
   $('prev').onclick = function () { show(index - 1); };
   $('next').onclick = function () { show(index + 1); };
   // TikTok's newer player is sometimes refused ("Access Denied"); its older embed often still works.
+  var altStep = 0;
   $('alt').onclick = function () {
-    if (!current || current.kind !== 'tiktok') return;
+    if (!current) return;
+    if (current.kind === 'facebook') {
+      // Many reels refuse to play outside Facebook (the owner turned embedding off).
+      if (altStep === 0 && current.id) {
+        altStep = 1;
+        $('frame').src = 'https://www.facebook.com/plugins/video.php?show_text=false&autoplay=true&href='
+          + encodeURIComponent('https://www.facebook.com/watch/?v=' + current.id);
+        return;
+      }
+      var open = document.createElement('a');
+      open.className = 'pill'; open.href = current.raw; open.target = '_blank'; open.rel = 'noopener';
+      open.textContent = 'Watch on Facebook';
+      $('frame').hidden = true;
+      notice(items[index].t || 'This video', 'Facebook only lets this one play on Facebook.', open);
+      $('alt').hidden = true;
+      return;
+    }
+    if (current.kind !== 'tiktok') return;
     var frame = $('frame');
     frame.onload = null;
     frame.src = 'https://www.tiktok.com/embed/v2/' + current.id + '?autoplay=1';
