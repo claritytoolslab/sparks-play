@@ -437,13 +437,14 @@
   if (typeof DecompressionStream === 'undefined') { fail('Your browser is too old to open this playlist. Try the latest Safari or Chrome.'); return; }
 
   decode(hash).then(function (data) {
-    // Version 2 packs each video as ["<kind><id>", "title"]; version 1 as {u, t}.
+    // Version 3 packs each video as "<kind><id>"; version 2 as ["<kind><id>", "title"]; version 1 as {u, t}.
     var BASES = {
       t: 'https://www.tiktok.com/@/video/', y: 'https://www.youtube.com/watch?v=',
       i: 'https://www.instagram.com/reel/', p: 'https://www.instagram.com/p/', f: 'https://www.facebook.com/reel/'
     };
     items = (data.i || []).map(function (x) {
-      if (!Array.isArray(x)) return { u: x.u, t: x.t };
+      if (typeof x === 'string') x = [x];
+      else if (!Array.isArray(x)) return { u: x.u, t: x.t };
       var kind = (x[0] || '').charAt(0), id = (x[0] || '').slice(1);
       return { u: BASES[kind] ? BASES[kind] + id + (kind === 'i' || kind === 'p' ? '/' : '') : id, t: x[1] };
     }).filter(function (x) { return x.u; });
@@ -459,12 +460,26 @@
       var li = document.createElement('li'), b = document.createElement('button');
       b.innerHTML = '<span class="n"></span><span class="t"></span><span class="s"></span>';
       b.children[0].textContent = i + 1;
-      b.children[1].textContent = item.t || item.u;
+      b.children[1].textContent = item.t || (e ? LABELS[e.kind] + ' video ' + (i + 1) : item.u);
       b.children[2].textContent = e ? LABELS[e.kind] : hostOf(item.u);
+      if (!item.t) lookUpTitle(item, b.children[1]);
       b.onclick = function () { begin(i); };
       li.appendChild(b);
       list.appendChild(li);
     });
+    function lookUpTitle(item, el) {
+      // Titles aren't in short links; ask the service. Silently keeps the placeholder if it refuses.
+      var e = embed(item.u), api = null;
+      if (e && e.kind === 'tiktok') api = 'https://www.tiktok.com/oembed?url=' + encodeURIComponent(item.u);
+      else if (e && e.kind === 'youtube') api = 'https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent(item.u);
+      if (!api) return;
+      fetch(api).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+        var t = j && (j.title || j.author_name);
+        if (!t) return;
+        item.t = String(t).slice(0, 80);
+        el.textContent = item.t;
+      }).catch(function () {});
+    }
     if (touchScreen) {
       $('open-app').href = 'sparks://play#' + hash;
       $('in-app').hidden = false;
